@@ -1,0 +1,352 @@
+openapi: 3.0.3
+info:
+  title: Max's Attunement Assistant API
+  description: Unified context API for Canvas LMS, Google Calendar, and reflection management
+  version: 1.0.0
+servers:
+  - url: https://your-server.com
+    description: Production server
+security:
+  - ApiKeyAuth: []
+
+paths:
+  /context:
+    post:
+      operationId: getContext
+      summary: Get unified context
+      description: Returns assignments, calendar events, course performance, and recent grades
+      responses:
+        '200':
+          description: Unified context response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContextResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /reflections/save:
+    post:
+      operationId: saveReflection
+      summary: Save a reflection
+      description: Appends a new reflection to the JSONL file in Google Drive
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveReflectionRequest'
+      responses:
+        '200':
+          description: Reflection saved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SaveReflectionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /reflections/recent:
+    post:
+      operationId: getRecentReflections
+      summary: Get recent reflections
+      description: Returns the most recent N reflections, newest first
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecentReflectionsRequest'
+      responses:
+        '200':
+          description: Recent reflections
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecentReflectionsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /reflections/cleanup:
+    post:
+      operationId: cleanupReflections
+      summary: Cleanup duplicate reflections
+      description: Removes duplicate reflections and adds a maintenance record
+      responses:
+        '200':
+          description: Cleanup completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CleanupReflectionsResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+
+  responses:
+    Forbidden:
+      description: Authentication failed
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: Forbidden
+              message:
+                type: string
+                example: Invalid API key
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: ValidationError
+              message:
+                type: string
+              details:
+                type: array
+                items:
+                  type: object
+
+  schemas:
+    Assignment:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        courseId:
+          type: integer
+        courseName:
+          type: string
+        dueAt:
+          type: string
+          nullable: true
+          description: ISO timestamp
+        due:
+          type: string
+          description: Human-readable date or "TBD"
+        points:
+          type: number
+        status:
+          type: string
+          description: Workflow state (submitted, graded, etc.)
+        desc:
+          type: string
+          description: HTML-stripped description, max 140 chars
+        url:
+          type: string
+          nullable: true
+
+    CalendarEvent:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        start:
+          type: string
+          nullable: true
+          description: ISO timestamp or date
+        end:
+          type: string
+          nullable: true
+        location:
+          type: string
+          nullable: true
+        source:
+          type: string
+          enum: [google_calendar]
+        joinUrl:
+          type: string
+          description: Meeting link if available
+
+    CoursePerformance:
+      type: object
+      properties:
+        courseId:
+          type: integer
+        courseName:
+          type: string
+        currentScore:
+          type: number
+          nullable: true
+        currentGrade:
+          type: string
+          nullable: true
+        finalScore:
+          type: number
+          nullable: true
+        finalGrade:
+          type: string
+          nullable: true
+
+    GradedAssignment:
+      type: object
+      properties:
+        assignmentId:
+          type: integer
+        title:
+          type: string
+        score:
+          type: number
+        pointsPossible:
+          type: number
+          nullable: true
+        gradedAt:
+          type: string
+          nullable: true
+        submittedAt:
+          type: string
+          nullable: true
+        url:
+          type: string
+          nullable: true
+
+    RecentPerformance:
+      type: object
+      properties:
+        courseId:
+          type: integer
+        courseName:
+          type: string
+        recentGraded:
+          type: array
+          items:
+            $ref: '#/components/schemas/GradedAssignment'
+
+    Summary:
+      type: object
+      properties:
+        courses:
+          type: array
+          items:
+            type: string
+        dueSoon:
+          type: array
+          items:
+            $ref: '#/components/schemas/Assignment'
+        assignmentsByCourse:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              $ref: '#/components/schemas/Assignment'
+        assignmentCount:
+          type: integer
+        eventCount:
+          type: integer
+
+    ContextResponse:
+      type: object
+      properties:
+        assignments:
+          type: array
+          items:
+            $ref: '#/components/schemas/Assignment'
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/CalendarEvent'
+        summary:
+          $ref: '#/components/schemas/Summary'
+        coursePerformance:
+          type: array
+          items:
+            $ref: '#/components/schemas/CoursePerformance'
+        recentPerformance:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecentPerformance'
+
+    Reflection:
+      type: object
+      properties:
+        who:
+          type: string
+          enum: [Jud, Jules, Max]
+        text:
+          type: string
+        threads:
+          type: array
+          items:
+            type: string
+        savedAt:
+          type: string
+          description: ISO timestamp with timezone
+
+    SaveReflectionRequest:
+      type: object
+      required:
+        - who
+        - text
+      properties:
+        who:
+          type: string
+          enum: [Jud, Jules, Max]
+        text:
+          type: string
+        threads:
+          type: array
+          items:
+            type: string
+          default: []
+
+    SaveReflectionResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        fileId:
+          type: string
+        fileName:
+          type: string
+        appendedAt:
+          type: string
+
+    RecentReflectionsRequest:
+      type: object
+      properties:
+        n:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 8
+
+    RecentReflectionsResponse:
+      type: object
+      properties:
+        count:
+          type: integer
+        reflections:
+          type: array
+          items:
+            $ref: '#/components/schemas/Reflection'
+
+    CleanupReflectionsResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        removedCount:
+          type: integer
+        cleanedAt:
+          type: string
