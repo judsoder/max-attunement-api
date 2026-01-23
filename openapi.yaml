@@ -1,12 +1,13 @@
 openapi: 3.0.3
 info:
   title: Max's Attunement Assistant API
-  description: Unified context API for Canvas LMS, Google Calendar, and reflection management
+  description: Unified context API for Canvas LMS, Google Calendar, and weekly reflection management.
   version: 1.0.0
+
 servers:
   - url: https://max-attunement-api.onrender.com
-
     description: Production server
+
 security:
   - ApiKeyAuth: []
 
@@ -15,77 +16,95 @@ paths:
     post:
       operationId: fetchMaxContext
       summary: Get unified context
-      description: Returns assignments, calendar events, course performance, and recent grades
-      responses:
-        '200':
-          description: Unified context response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ContextResponse'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-
-  /reflections/save:
-    post:
-      operationId: saveWeeklyReflection
-      summary: Save a reflection
-      description: Appends a new reflection to the JSONL file in Google Drive
+      description: Returns assignments, calendar events, course performance, and recent graded items.
+      x-openai-isConsequential: false
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SaveReflectionRequest'
+              $ref: "#/components/schemas/ContextRequest"
       responses:
-        '200':
+        "200":
+          description: Unified context response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContextResponse"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /reflections/save:
+    post:
+      operationId: saveWeeklyReflection
+      summary: Save a weekly reflection
+      description: Appends a new reflection entry to the JSONL file in Google Drive.
+      x-openai-isConsequential: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveReflectionRequest"
+      responses:
+        "200":
           description: Reflection saved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SaveReflectionResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '403':
-          $ref: '#/components/responses/Forbidden'
+                $ref: "#/components/schemas/SaveReflectionResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
 
   /reflections/recent:
     post:
       operationId: getRecentReflections
       summary: Get recent reflections
-      description: Returns the most recent N reflections, newest first
+      description: Returns the most recent N reflections, newest first.
+      x-openai-isConsequential: false
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/RecentReflectionsRequest'
+              $ref: "#/components/schemas/RecentReflectionsRequest"
       responses:
-        '200':
+        "200":
           description: Recent reflections
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RecentReflectionsResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '403':
-          $ref: '#/components/responses/Forbidden'
+                $ref: "#/components/schemas/RecentReflectionsResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
 
   /reflections/cleanup:
     post:
       operationId: cleanupReflections
       summary: Cleanup duplicate reflections
-      description: Removes duplicate reflections and adds a maintenance record
+      description: Removes duplicate reflections and adds a maintenance record.
+      x-openai-isConsequential: false
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CleanupReflectionsRequest"
       responses:
-        '200':
+        "200":
           description: Cleanup completed
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CleanupReflectionsResponse'
-        '403':
-          $ref: '#/components/responses/Forbidden'
+                $ref: "#/components/schemas/CleanupReflectionsResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
 
 components:
   securitySchemes:
@@ -96,62 +115,63 @@ components:
 
   responses:
     Forbidden:
-      description: Authentication failed
+      description: Forbidden (missing or invalid API key)
       content:
         application/json:
           schema:
             type: object
             properties:
-              error:
-                type: string
-                example: Forbidden
-              message:
-                type: string
-                example: Invalid API key
+              error: { type: string, example: "Forbidden" }
+              message: { type: string, example: "Missing or invalid X-API-Key header" }
     BadRequest:
-      description: Invalid request
+      description: Bad request (validation error)
       content:
         application/json:
           schema:
             type: object
             properties:
-              error:
-                type: string
-                example: ValidationError
-              message:
-                type: string
-              details:
-                type: array
-                items:
-                  type: object
+              error: { type: string, example: "BadRequest" }
+              message: { type: string, example: "Invalid request body" }
 
   schemas:
+    ContextRequest:
+      type: object
+      required: [text]
+      properties:
+        text:
+          type: string
+          description: The parent/Max request in natural language.
+        who:
+          type: string
+          description: Who is asking (Jud/Jules/Max).
+        student:
+          type: string
+          description: Student name (Max).
+
     Assignment:
       type: object
       properties:
-        id:
-          type: integer
-        name:
-          type: string
-        courseId:
-          type: integer
-        courseName:
-          type: string
+        id: { type: integer }
+        name: { type: string }
+        courseId: { type: integer }
+        courseName: { type: string }
         dueAt:
           type: string
           nullable: true
-          description: ISO timestamp
+          description: ISO timestamp (may be null).
         due:
           type: string
-          description: Human-readable date or "TBD"
+          nullable: true
+          description: Human-friendly due date string (time-stripped if you chose date-only).
         points:
           type: number
+          nullable: true
         status:
           type: string
-          description: Workflow state (submitted, graded, etc.)
+          nullable: true
         desc:
           type: string
-          description: HTML-stripped description, max 140 chars
+          nullable: true
         url:
           type: string
           nullable: true
@@ -159,14 +179,11 @@ components:
     CalendarEvent:
       type: object
       properties:
-        id:
-          type: string
-        title:
-          type: string
+        id: { type: string }
+        title: { type: string }
         start:
           type: string
           nullable: true
-          description: ISO timestamp or date
         end:
           type: string
           nullable: true
@@ -175,18 +192,16 @@ components:
           nullable: true
         source:
           type: string
-          enum: [google_calendar]
-        joinUrl:
+          description: e.g. google_calendar
+        url:
           type: string
-          description: Meeting link if available
+          nullable: true
 
     CoursePerformance:
       type: object
       properties:
-        courseId:
-          type: integer
-        courseName:
-          type: string
+        courseId: { type: integer }
+        courseName: { type: string }
         currentScore:
           type: number
           nullable: true
@@ -200,15 +215,14 @@ components:
           type: string
           nullable: true
 
-    GradedAssignment:
+    RecentGradedItem:
       type: object
       properties:
-        assignmentId:
-          type: integer
-        title:
-          type: string
+        assignmentId: { type: integer }
+        title: { type: string }
         score:
           type: number
+          nullable: true
         pointsPossible:
           type: number
           nullable: true
@@ -225,80 +239,53 @@ components:
     RecentPerformance:
       type: object
       properties:
-        courseId:
-          type: integer
-        courseName:
-          type: string
+        courseId: { type: integer }
+        courseName: { type: string }
         recentGraded:
           type: array
           items:
-            $ref: '#/components/schemas/GradedAssignment'
+            $ref: "#/components/schemas/RecentGradedItem"
 
     Summary:
       type: object
       properties:
         courses:
           type: array
-          items:
-            type: string
+          items: { type: string }
         dueSoon:
           type: array
           items:
-            $ref: '#/components/schemas/Assignment'
-        assignmentsByCourse:
-          type: object
-          additionalProperties:
-            type: array
-            items:
-              $ref: '#/components/schemas/Assignment'
-        assignmentCount:
-          type: integer
-        eventCount:
-          type: integer
+            type: object
+            properties:
+              id: { type: integer }
+              name: { type: string }
+              courseName: { type: string }
+              dueAt: { type: string, nullable: true }
+              due: { type: string, nullable: true }
+        assignmentCount: { type: integer }
+        eventCount: { type: integer }
 
     ContextResponse:
       type: object
       properties:
         assignments:
           type: array
-          items:
-            $ref: '#/components/schemas/Assignment'
+          items: { $ref: "#/components/schemas/Assignment" }
         events:
           type: array
-          items:
-            $ref: '#/components/schemas/CalendarEvent'
+          items: { $ref: "#/components/schemas/CalendarEvent" }
         summary:
-          $ref: '#/components/schemas/Summary'
+          $ref: "#/components/schemas/Summary"
         coursePerformance:
           type: array
-          items:
-            $ref: '#/components/schemas/CoursePerformance'
+          items: { $ref: "#/components/schemas/CoursePerformance" }
         recentPerformance:
           type: array
-          items:
-            $ref: '#/components/schemas/RecentPerformance'
-
-    Reflection:
-      type: object
-      properties:
-        who:
-          type: string
-          enum: [Jud, Jules, Max]
-        text:
-          type: string
-        threads:
-          type: array
-          items:
-            type: string
-        savedAt:
-          type: string
-          description: ISO timestamp with timezone
+          items: { $ref: "#/components/schemas/RecentPerformance" }
 
     SaveReflectionRequest:
       type: object
-      required:
-        - who
-        - text
+      required: [who, text]
       properties:
         who:
           type: string
@@ -307,47 +294,55 @@ components:
           type: string
         threads:
           type: array
-          items:
-            type: string
+          items: { type: string }
           default: []
 
     SaveReflectionResponse:
       type: object
       properties:
-        ok:
-          type: boolean
-        fileId:
-          type: string
-        fileName:
-          type: string
-        appendedAt:
-          type: string
+        ok: { type: boolean }
+        fileId: { type: string }
+        fileName: { type: string }
+        appendedAt: { type: string }
 
     RecentReflectionsRequest:
       type: object
       properties:
         n:
           type: integer
-          minimum: 1
-          maximum: 100
-          default: 8
+          default: 5
+          description: Number of reflections to return.
+
+    RecentReflection:
+      type: object
+      properties:
+        type: { type: string }
+        createdAt: { type: string }
+        who: { type: string }
+        text: { type: string }
+        threads:
+          type: array
+          items: { type: string }
 
     RecentReflectionsResponse:
       type: object
       properties:
-        count:
-          type: integer
+        count: { type: integer }
         reflections:
           type: array
-          items:
-            $ref: '#/components/schemas/Reflection'
+          items: { $ref: "#/components/schemas/RecentReflection" }
+
+    CleanupReflectionsRequest:
+      type: object
+      properties:
+        dryRun:
+          type: boolean
+          default: false
 
     CleanupReflectionsResponse:
       type: object
       properties:
-        ok:
-          type: boolean
-        removedCount:
-          type: integer
-        cleanedAt:
-          type: string
+        ok: { type: boolean }
+        removedCount: { type: integer }
+        cleanedAt: { type: string }
+
