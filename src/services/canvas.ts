@@ -87,8 +87,8 @@ export async function getAllAssignments(): Promise<{
           courseId: course.id,
           courseName: course.name,
           dueAt: a.due_at,
-          due: due: a.due_at ? formatDateDenver(a.due_at).replace(/,\s*\d{1,2}:\d{2}\s*(AM|PM)\s*$/, "") : null,
-,
+          due: a.due_at ? formatDateDenver(a.due_at).split(",").slice(0, 2).join(",").trim() : null,
+
           points: a.points_possible,
           status: a.submission?.workflow_state ?? a.workflow_state,
           desc: stripHtml(a.description, 140),
