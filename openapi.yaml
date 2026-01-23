@@ -4,7 +4,8 @@ info:
   description: Unified context API for Canvas LMS, Google Calendar, and reflection management
   version: 1.0.0
 servers:
-  - url: https://your-server.com
+  - url: https://max-attunement-api.onrender.com
+
     description: Production server
 security:
   - ApiKeyAuth: []
@@ -12,7 +13,7 @@ security:
 paths:
   /context:
     post:
-      operationId: getContext
+      operationId: fetchMaxContext
       summary: Get unified context
       description: Returns assignments, calendar events, course performance, and recent grades
       responses:
@@ -27,7 +28,7 @@ paths:
 
   /reflections/save:
     post:
-      operationId: saveReflection
+      operationId: saveWeeklyReflection
       summary: Save a reflection
       description: Appends a new reflection to the JSONL file in Google Drive
       requestBody:
