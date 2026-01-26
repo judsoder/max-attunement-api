@@ -175,6 +175,7 @@ components:
         url:
           type: string
           nullable: true
+          description: Path to assignment (e.g., /courses/123/assignments/456). Combine with canvasBaseUrl for full link.
 
     CalendarEvent:
       type: object
@@ -235,6 +236,7 @@ components:
         url:
           type: string
           nullable: true
+          description: Path to assignment (e.g., /courses/123/assignments/456). Combine with canvasBaseUrl for full link.
 
     RecentPerformance:
       type: object
@@ -268,6 +270,9 @@ components:
     ContextResponse:
       type: object
       properties:
+        canvasBaseUrl:
+          type: string
+          description: Base URL for Canvas (e.g., https://waterfordschool.instructure.com). Combine with assignment url paths to form full links.
         assignments:
           type: array
           items: { $ref: "#/components/schemas/Assignment" }

@@ -71,10 +71,7 @@ Current known behavior:
   - cleanup/dedupe
 
 ## Current priorities / next steps
-1) **Reduce link size** (primary)
-   - Links in API response are long/ugly — shorten or clean up for better GPT output
-
-2) **Grade hypotheticals safety**
+1) **Grade hypotheticals safety**
    - Only compute "what if X/5 becomes 5/5" when gradebook totals exist; otherwise ask for totals
 
 3) **Stability**
@@ -83,6 +80,7 @@ Current known behavior:
 
 ## Completed / Deferred
 - ✅ Time noise cleanup — handled in GPT instructions, working fine now
+- ✅ Reduce link size (2025-01-26) — API now sends `canvasBaseUrl` once + paths per assignment. GPT instructions updated to combine them. Much cleaner output.
 - ⏸️ Calendar filtering (Lev events) — deferred; Jud likes seeing everything for now
 
 ## Useful test commands (no secrets here)
