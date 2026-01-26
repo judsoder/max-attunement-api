@@ -10,6 +10,7 @@ export interface Summary {
 }
 
 export interface ContextResponse {
+  canvasBaseUrl: string;
   assignments: Assignment[];
   events: CalendarEvent[];
   summary: Summary;

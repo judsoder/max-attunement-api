@@ -1,6 +1,7 @@
 import { FastifyInstance } from "fastify";
 import { getAllAssignments } from "../services/canvas.js";
 import { getCalendarEvents } from "../services/calendar.js";
+import { config } from "../config.js";
 import type { Assignment } from "../types/canvas.js";
 import type { ContextResponse, Summary } from "../types/api.js";
 
@@ -46,6 +47,7 @@ export async function contextRoutes(app: FastifyInstance): Promise<void> {
     const summary = buildSummary(assignments, events.length);
 
     const response: ContextResponse = {
+      canvasBaseUrl: config.canvasBaseUrl,
       assignments,
       events,
       summary,

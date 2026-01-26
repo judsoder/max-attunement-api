@@ -13,6 +13,17 @@ import type {
 
 const DAYS_AHEAD = 7;
 
+/** Strip the Canvas base URL, returning just the path (e.g., /courses/123/assignments/456) */
+function toCanvasPath(fullUrl: string | null | undefined): string | null {
+  if (!fullUrl) return null;
+  try {
+    const url = new URL(fullUrl);
+    return url.pathname;
+  } catch {
+    return fullUrl; // fallback: return as-is if not a valid URL
+  }
+}
+
 async function canvasFetch<T>(path: string): Promise<T> {
   const url = `${config.canvasBaseUrl}${path}`;
   const response = await fetch(url, {
@@ -93,7 +104,7 @@ due: a.due_at ? formatDateDenver(a.due_at).split(",").slice(0, 2).join(",").trim
           points: a.points_possible,
           status: a.submission?.workflow_state ?? a.workflow_state,
           desc: stripHtml(a.description, 140),
-          url: a.html_url ?? null,
+          url: toCanvasPath(a.html_url),
         }));
 
       allAssignments.push(...upcomingAssignments);
@@ -114,7 +125,7 @@ due: a.due_at ? formatDateDenver(a.due_at).split(",").slice(0, 2).join(",").trim
           pointsPossible: s.assignment?.points_possible ?? null,
           gradedAt: s.graded_at,
           submittedAt: s.submitted_at,
-          url: s.assignment?.html_url ?? null,
+          url: toCanvasPath(s.assignment?.html_url),
         }));
 
       if (gradedSubmissions.length > 0) {
