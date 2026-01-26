@@ -106,6 +106,136 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
+  /syllabus:
+    get:
+      operationId: getAllSyllabi
+      summary: Get all course syllabi
+      description: Returns all syllabi with grade weights, policies, and full content.
+      x-openai-isConsequential: false
+      responses:
+        "200":
+          description: List of all syllabi
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SyllabusListResponse"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /syllabus/weights:
+    get:
+      operationId: getGradeWeights
+      summary: Get grade weight summary for all courses
+      description: Returns a lightweight summary of grade weights for all courses.
+      x-openai-isConsequential: false
+      responses:
+        "200":
+          description: Grade weight summary
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  weights:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/GradeWeightSummary"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /syllabus/{course}:
+    get:
+      operationId: getSyllabus
+      summary: Get a specific syllabus
+      description: Returns syllabus for a course by slug or name (e.g., "latin-iii", "math", "english").
+      x-openai-isConsequential: false
+      parameters:
+        - name: course
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Course slug or name (e.g., "latin-iii", "algebra", "history")
+      responses:
+        "200":
+          description: Syllabus for the course
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SyllabusResponse"
+        "404":
+          description: Course not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string }
+                  message: { type: string }
+                  availableCourses:
+                    type: array
+                    items: { type: string }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /syllabus/match:
+    post:
+      operationId: matchSyllabus
+      summary: Match a Canvas course name to a syllabus
+      description: Given a Canvas course name, finds the matching syllabus.
+      x-openai-isConsequential: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [courseName]
+              properties:
+                courseName:
+                  type: string
+                  description: Canvas course name to match
+      responses:
+        "200":
+          description: Match result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  matched: { type: boolean }
+                  courseName: { type: string }
+                  syllabus:
+                    $ref: "#/components/schemas/Syllabus"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /syllabus/impact:
+    post:
+      operationId: calculateGradeImpact
+      summary: Calculate grade impact for an assignment
+      description: Given a course, category, and score, calculates the impact on overall grade.
+      x-openai-isConsequential: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GradeImpactRequest"
+      responses:
+        "200":
+          description: Grade impact analysis
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GradeImpactResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
 components:
   securitySchemes:
     ApiKeyAuth:
@@ -350,4 +480,100 @@ components:
         ok: { type: boolean }
         removedCount: { type: integer }
         cleanedAt: { type: string }
+
+    GradeWeight:
+      type: object
+      properties:
+        category: { type: string }
+        weight: { type: number }
+        notes: { type: string, nullable: true }
+
+    KeyPolicy:
+      type: object
+      properties:
+        name: { type: string }
+        description: { type: string }
+
+    Syllabus:
+      type: object
+      properties:
+        course: { type: string }
+        slug: { type: string }
+        teacher: { type: string, nullable: true }
+        email: { type: string, nullable: true }
+        room: { type: string, nullable: true }
+        officeHours: { type: string, nullable: true }
+        gradeWeights:
+          type: array
+          items:
+            $ref: "#/components/schemas/GradeWeight"
+        keyPolicies:
+          type: array
+          items:
+            $ref: "#/components/schemas/KeyPolicy"
+        rawMarkdown: { type: string }
+
+    GradeWeightSummary:
+      type: object
+      properties:
+        course: { type: string }
+        slug: { type: string }
+        weights:
+          type: array
+          items:
+            $ref: "#/components/schemas/GradeWeight"
+
+    SyllabusListResponse:
+      type: object
+      properties:
+        syllabi:
+          type: array
+          items:
+            $ref: "#/components/schemas/Syllabus"
+        summary:
+          type: array
+          items:
+            $ref: "#/components/schemas/GradeWeightSummary"
+
+    SyllabusResponse:
+      type: object
+      properties:
+        syllabus:
+          $ref: "#/components/schemas/Syllabus"
+
+    GradeImpactRequest:
+      type: object
+      required: [courseName, category, score, maxScore]
+      properties:
+        courseName:
+          type: string
+          description: Course name (e.g., "Latin III", "math")
+        category:
+          type: string
+          description: Grade category (e.g., "quizzes", "tests", "homework")
+        score:
+          type: number
+          description: Points earned
+        maxScore:
+          type: number
+          description: Points possible
+        currentGrade:
+          type: number
+          nullable: true
+          description: Current overall grade percentage (optional)
+
+    GradeImpactResponse:
+      type: object
+      properties:
+        courseName: { type: string }
+        percentScore: { type: number }
+        categoryWeight: { type: number }
+        categoryName: { type: string }
+        maxPossibleImpact: { type: number }
+        notes: { type: string, nullable: true }
+        keyPolicies:
+          type: array
+          items:
+            $ref: "#/components/schemas/KeyPolicy"
+        interpretation: { type: string }
 

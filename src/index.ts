@@ -4,6 +4,7 @@ import { config } from "./config.js";
 import { registerAuthHook } from "./middleware/auth.js";
 import { contextRoutes } from "./routes/context.js";
 import { reflectionsRoutes } from "./routes/reflections.js";
+import { syllabusRoutes } from "./routes/syllabus.js";
 
 const app = Fastify({
   logger: true,
@@ -33,6 +34,7 @@ app.setErrorHandler((error, request, reply) => {
 // Register routes
 app.register(contextRoutes);
 app.register(reflectionsRoutes);
+app.register(syllabusRoutes);
 
 // Health check (no auth required - registered before auth hook)
 app.get("/health", { preHandler: [] }, async () => {
