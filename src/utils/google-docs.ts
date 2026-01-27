@@ -4,8 +4,13 @@
  */
 
 // pdf-parse for extracting text from PDFs
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const pdf = require("pdf-parse");
+import { PDFParse } from "pdf-parse";
+
+async function parsePdf(buffer: Buffer): Promise<string> {
+  const parser = new PDFParse({ data: buffer });
+  const result = await parser.getText();
+  return result.text;
+}
 
 interface GoogleDocContent {
   url: string;
@@ -137,10 +142,10 @@ async function fetchGoogleDrivePdf(fileId: string): Promise<string> {
   const buffer = Buffer.from(arrayBuffer);
   
   // Parse PDF text
-  const data = await pdf(buffer);
+  const text = await parsePdf(buffer);
   
   // Return text content, limited to reasonable size
-  return data.text.slice(0, 20000);
+  return text.slice(0, 20000);
 }
 
 /**
