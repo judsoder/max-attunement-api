@@ -1,5 +1,6 @@
 import { config } from "../config.js";
 import { stripHtml } from "../utils/html.js";
+import { fetchAllGoogleContent } from "../utils/google-docs.js";
 import type { StudentConfig } from "../types/student.js";
 
 // Canvas file attachment structure
@@ -40,6 +41,12 @@ export interface AssignmentContent {
     size: number;
     content?: string; // Parsed text content (for supported types)
     error?: string; // If we couldn't parse it
+  }>;
+  googleDocs?: Array<{
+    url: string;
+    type: "doc" | "spreadsheet" | "pdf" | "unknown";
+    content?: string;
+    error?: string;
   }>;
 }
 
@@ -112,20 +119,25 @@ export async function getAssignmentContent(
     studentConfig
   );
 
-  // Process attachments
-  const attachments = await Promise.all(
-    (assignment.attachments || []).map(async (file) => {
-      const content = await fetchFileContent(file, studentConfig);
-      return {
-        id: file.id,
-        name: file.display_name,
-        contentType: file["content-type"],
-        size: file.size,
-        content: content ?? undefined,
-        error: content === null ? "Could not fetch/parse file content" : undefined,
-      };
-    })
-  );
+  // Process Canvas attachments and Google Docs in parallel
+  const [attachments, googleDocs] = await Promise.all([
+    // Canvas file attachments
+    Promise.all(
+      (assignment.attachments || []).map(async (file) => {
+        const content = await fetchFileContent(file, studentConfig);
+        return {
+          id: file.id,
+          name: file.display_name,
+          contentType: file["content-type"],
+          size: file.size,
+          content: content ?? undefined,
+          error: content === null ? "Could not fetch/parse file content" : undefined,
+        };
+      })
+    ),
+    // Google Docs/Sheets/Drive files linked in description
+    assignment.description ? fetchAllGoogleContent(assignment.description) : Promise.resolve([]),
+  ]);
 
   return {
     assignmentId: assignment.id,
@@ -137,6 +149,7 @@ export async function getAssignmentContent(
     points: assignment.points_possible,
     url: assignment.html_url,
     attachments,
+    googleDocs: googleDocs.length > 0 ? googleDocs : undefined,
   };
 }
 
