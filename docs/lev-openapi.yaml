@@ -1,0 +1,330 @@
+openapi: 3.1.0
+info:
+  title: Lev's Attunement Assistant API
+  description: Context API for Canvas LMS, Google Calendar, and weekly teacher emails for Lev.
+  version: 1.0.0
+
+servers:
+  - url: https://max-attunement-api.onrender.com
+    description: Production server
+
+security:
+  - ApiKeyAuth: []
+
+paths:
+  /context:
+    post:
+      operationId: fetchLevContext
+      summary: Get Lev's unified context
+      description: Returns assignments, calendar events, course performance, and weekly teacher email.
+      x-openai-isConsequential: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text:
+                  type: string
+                  description: The user's message/question
+                who:
+                  type: string
+                  description: Who is asking (Jud, Jules, or Lev)
+                student:
+                  type: string
+                  enum: ["lev"]
+                  default: "lev"
+                  description: Always "lev" for this assistant
+              required:
+                - student
+      responses:
+        "200":
+          description: Unified context response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContextResponse"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /weekly-email:
+    get:
+      operationId: getWeeklyEmail
+      summary: Get the current weekly teacher email
+      description: Returns the most recent weekly email from Mr. Johnson.
+      x-openai-isConsequential: false
+      parameters:
+        - name: student
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: ["lev"]
+        - name: weekOf
+          in: query
+          required: false
+          schema:
+            type: string
+            description: Optional specific week (YYYY-MM-DD format, Monday of that week)
+      responses:
+        "200":
+          description: Weekly email
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WeeklyEmail"
+        "404":
+          description: No weekly email found
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: saveWeeklyEmail
+      summary: Save a weekly teacher email
+      description: Saves a new weekly email when forwarded by a parent.
+      x-openai-isConsequential: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveWeeklyEmailRequest"
+      responses:
+        "201":
+          description: Weekly email saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WeeklyEmail"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /weekly-email/history:
+    get:
+      operationId: getWeeklyEmailHistory
+      summary: Get weekly email history
+      description: Returns past weekly emails for reference.
+      x-openai-isConsequential: false
+      parameters:
+        - name: student
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: ["lev"]
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 10
+      responses:
+        "200":
+          description: Weekly email history
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  student:
+                    type: string
+                  emails:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/WeeklyEmail"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Forbidden:
+      description: Missing or invalid API key
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+
+    WeeklyEmail:
+      type: object
+      properties:
+        student:
+          type: string
+        weekOf:
+          type: string
+          description: Monday of the week (YYYY-MM-DD)
+        subject:
+          type: string
+        content:
+          type: string
+        receivedAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    SaveWeeklyEmailRequest:
+      type: object
+      properties:
+        student:
+          type: string
+          enum: ["lev"]
+        weekOf:
+          type: string
+          description: Monday of the week (YYYY-MM-DD)
+        subject:
+          type: string
+        content:
+          type: string
+        receivedAt:
+          type: string
+          format: date-time
+      required:
+        - student
+        - weekOf
+        - subject
+        - content
+
+    Assignment:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        courseId:
+          type: integer
+        courseName:
+          type: string
+        dueAt:
+          type: string
+          format: date-time
+          nullable: true
+        due:
+          type: string
+          description: Human-readable due date
+        points:
+          type: number
+          nullable: true
+        status:
+          type: string
+        desc:
+          type: string
+          nullable: true
+        url:
+          type: string
+          nullable: true
+
+    CalendarEvent:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        start:
+          type: string
+          nullable: true
+        end:
+          type: string
+          nullable: true
+        location:
+          type: string
+          nullable: true
+        source:
+          type: string
+        joinUrl:
+          type: string
+
+    CoursePerformance:
+      type: object
+      properties:
+        courseId:
+          type: integer
+        courseName:
+          type: string
+        currentScore:
+          type: number
+          nullable: true
+        currentGrade:
+          type: string
+          nullable: true
+        finalScore:
+          type: number
+          nullable: true
+        finalGrade:
+          type: string
+          nullable: true
+
+    ContextResponse:
+      type: object
+      properties:
+        student:
+          type: string
+        studentDisplayName:
+          type: string
+        canvasBaseUrl:
+          type: string
+        assignments:
+          type: array
+          items:
+            $ref: "#/components/schemas/Assignment"
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/CalendarEvent"
+        summary:
+          type: object
+          properties:
+            courses:
+              type: array
+              items:
+                type: string
+            dueSoon:
+              type: array
+              items:
+                $ref: "#/components/schemas/Assignment"
+            assignmentsByCourse:
+              type: object
+              additionalProperties:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Assignment"
+            assignmentCount:
+              type: integer
+            eventCount:
+              type: integer
+        coursePerformance:
+          type: array
+          items:
+            $ref: "#/components/schemas/CoursePerformance"
+        recentPerformance:
+          type: array
+          items:
+            type: object
+        weeklyEmail:
+          $ref: "#/components/schemas/WeeklyEmail"
+          description: Weekly teacher email (included automatically for Lev)
