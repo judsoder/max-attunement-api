@@ -1,9 +1,10 @@
 import { google } from "googleapis";
 import { config } from "../config.js";
 import { getDateRange } from "../utils/date.js";
+import type { StudentConfig } from "../types/student.js";
 import type { CalendarEvent } from "../types/calendar.js";
 
-const DAYS_AHEAD = 7;
+const DAYS_AHEAD = 14;
 
 function getOAuth2Client() {
   const oauth2Client = new google.auth.OAuth2(
@@ -18,14 +19,14 @@ function getOAuth2Client() {
   return oauth2Client;
 }
 
-export async function getCalendarEvents(): Promise<CalendarEvent[]> {
+export async function getCalendarEvents(studentConfig: StudentConfig): Promise<CalendarEvent[]> {
   const auth = getOAuth2Client();
   const calendar = google.calendar({ version: "v3", auth });
 
   const { start, end } = getDateRange(DAYS_AHEAD);
 
   const response = await calendar.events.list({
-    calendarId: config.googleCalendarId,
+    calendarId: studentConfig.googleCalendarId,
     timeMin: start.toISOString(),
     timeMax: end.toISOString(),
     singleEvents: true,

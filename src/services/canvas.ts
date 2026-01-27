@@ -1,6 +1,7 @@
 import { config } from "../config.js";
 import { stripHtml } from "../utils/html.js";
 import { isWithinDays, formatDateDenver } from "../utils/date.js";
+import type { StudentConfig } from "../types/student.js";
 import type {
   CanvasCourse,
   CanvasAssignment,
@@ -11,7 +12,7 @@ import type {
   GradedAssignment,
 } from "../types/canvas.js";
 
-const DAYS_AHEAD = 7;
+const DAYS_AHEAD = 14;
 
 /** Strip the Canvas base URL, returning just the path (e.g., /courses/123/assignments/456) */
 function toCanvasPath(fullUrl: string | null | undefined): string | null {
@@ -24,11 +25,11 @@ function toCanvasPath(fullUrl: string | null | undefined): string | null {
   }
 }
 
-async function canvasFetch<T>(path: string): Promise<T> {
+async function canvasFetch<T>(path: string, studentConfig: StudentConfig): Promise<T> {
   const url = `${config.canvasBaseUrl}${path}`;
   const response = await fetch(url, {
     headers: {
-      Authorization: `Bearer ${config.canvasToken}`,
+      Authorization: `Bearer ${studentConfig.canvasToken}`,
     },
   });
 
@@ -39,30 +40,39 @@ async function canvasFetch<T>(path: string): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-export async function getCourses(): Promise<CanvasCourse[]> {
+export async function getCourses(studentConfig: StudentConfig): Promise<CanvasCourse[]> {
   return canvasFetch<CanvasCourse[]>(
-    `/api/v1/users/${config.canvasStudentId}/courses?per_page=100&enrollment_state=active&include[]=total_scores`
+    `/api/v1/users/${studentConfig.canvasStudentId}/courses?per_page=100&enrollment_state=active&include[]=total_scores`,
+    studentConfig
   );
 }
 
-export async function getAssignmentsForCourse(courseId: number): Promise<CanvasAssignment[]> {
+export async function getAssignmentsForCourse(
+  courseId: number,
+  studentConfig: StudentConfig
+): Promise<CanvasAssignment[]> {
   return canvasFetch<CanvasAssignment[]>(
-    `/api/v1/courses/${courseId}/assignments?include[]=submission&include[]=assignment_visibility&include[]=overrides&include[]=description&per_page=100`
+    `/api/v1/courses/${courseId}/assignments?include[]=submission&include[]=assignment_visibility&include[]=overrides&include[]=description&per_page=100`,
+    studentConfig
   );
 }
 
-export async function getSubmissionsForCourse(courseId: number): Promise<CanvasSubmission[]> {
+export async function getSubmissionsForCourse(
+  courseId: number,
+  studentConfig: StudentConfig
+): Promise<CanvasSubmission[]> {
   return canvasFetch<CanvasSubmission[]>(
-    `/api/v1/courses/${courseId}/students/submissions?student_ids[]=${config.canvasStudentId}&include[]=assignment&per_page=50`
+    `/api/v1/courses/${courseId}/students/submissions?student_ids[]=${studentConfig.canvasStudentId}&include[]=assignment&per_page=50`,
+    studentConfig
   );
 }
 
-export async function getAllAssignments(): Promise<{
+export async function getAllAssignments(studentConfig: StudentConfig): Promise<{
   assignments: Assignment[];
   coursePerformance: CoursePerformance[];
   recentPerformance: RecentPerformance[];
 }> {
-  const courses = await getCourses();
+  const courses = await getCourses(studentConfig);
   const activeCourses = courses.filter((c) => c.workflow_state === "available");
 
   const allAssignments: Assignment[] = [];
@@ -74,8 +84,8 @@ export async function getAllAssignments(): Promise<{
     activeCourses.map(async (course) => {
       // Get assignments and submissions in parallel
       const [rawAssignments, rawSubmissions] = await Promise.all([
-        getAssignmentsForCourse(course.id),
-        getSubmissionsForCourse(course.id),
+        getAssignmentsForCourse(course.id, studentConfig),
+        getSubmissionsForCourse(course.id, studentConfig),
       ]);
 
       // Build course performance
@@ -89,7 +99,7 @@ export async function getAllAssignments(): Promise<{
         finalGrade: enrollment?.computed_final_grade ?? null,
       });
 
-      // Filter assignments to next 7 days
+      // Filter assignments to next N days
       const upcomingAssignments = rawAssignments
         .filter((a) => isWithinDays(a.due_at, DAYS_AHEAD))
         .map((a): Assignment => ({
@@ -97,10 +107,8 @@ export async function getAllAssignments(): Promise<{
           name: a.name,
           courseId: course.id,
           courseName: course.name,
-          dueAt: a.due_at,                                                                    
-due: a.due_at ? formatDateDenver(a.due_at).split(",").slice(0, 2).join(",").trim() : "TBD",
-
-         
+          dueAt: a.due_at,
+          due: a.due_at ? formatDateDenver(a.due_at).split(",").slice(0, 2).join(",").trim() : "TBD",
           points: a.points_possible,
           status: a.submission?.workflow_state ?? a.workflow_state,
           desc: stripHtml(a.description, 140),

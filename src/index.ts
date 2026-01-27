@@ -1,10 +1,11 @@
 import Fastify from "fastify";
 import rateLimit from "@fastify/rate-limit";
-import { config } from "./config.js";
+import { config, validStudents } from "./config.js";
 import { registerAuthHook } from "./middleware/auth.js";
 import { contextRoutes } from "./routes/context.js";
 import { reflectionsRoutes } from "./routes/reflections.js";
 import { syllabusRoutes } from "./routes/syllabus.js";
+import { weeklyEmailRoutes } from "./routes/weekly-email.js";
 
 const app = Fastify({
   logger: true,
@@ -35,10 +36,15 @@ app.setErrorHandler((error, request, reply) => {
 app.register(contextRoutes);
 app.register(reflectionsRoutes);
 app.register(syllabusRoutes);
+app.register(weeklyEmailRoutes);
 
 // Health check (no auth required - registered before auth hook)
 app.get("/health", { preHandler: [] }, async () => {
-  return { status: "ok", timestamp: new Date().toISOString() };
+  return {
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    students: validStudents,
+  };
 });
 
 // Start server
@@ -46,6 +52,7 @@ const start = async () => {
   try {
     await app.listen({ port: config.port, host: "0.0.0.0" });
     console.log(`Server listening on port ${config.port}`);
+    console.log(`Supported students: ${validStudents.join(", ")}`);
   } catch (err) {
     app.log.error(err);
     process.exit(1);
