@@ -6,6 +6,7 @@ import { contextRoutes } from "./routes/context.js";
 import { reflectionsRoutes } from "./routes/reflections.js";
 import { syllabusRoutes } from "./routes/syllabus.js";
 import { weeklyEmailRoutes } from "./routes/weekly-email.js";
+import { assignmentContentRoutes } from "./routes/assignment-content.js";
 
 const app = Fastify({
   logger: true,
@@ -37,6 +38,7 @@ app.register(contextRoutes);
 app.register(reflectionsRoutes);
 app.register(syllabusRoutes);
 app.register(weeklyEmailRoutes);
+app.register(assignmentContentRoutes);
 
 // Health check (no auth required - registered before auth hook)
 app.get("/health", { preHandler: [] }, async () => {

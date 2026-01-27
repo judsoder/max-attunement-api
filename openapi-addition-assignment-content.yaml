@@ -1,0 +1,95 @@
+# Add this to your existing OpenAPI spec for the GPT action
+# This enables the GPT to fetch full assignment content including attached files
+
+paths:
+  /assignment/content:
+    post:
+      operationId: getAssignmentContent
+      summary: Get full assignment content including attachments
+      description: |
+        Fetches the complete content of a specific assignment, including:
+        - Full description (not truncated)
+        - Attached files with parsed text content where possible
+        - Linked quizzes or Canvas pages
+        
+        Use this when you need to see actual assignment materials for study help,
+        not just the metadata from /context.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - courseId
+                - assignmentId
+              properties:
+                courseId:
+                  type: integer
+                  description: The Canvas course ID
+                assignmentId:
+                  type: integer
+                  description: The Canvas assignment ID
+                student:
+                  type: string
+                  enum: [max, lev]
+                  description: Which student (defaults to max)
+      responses:
+        '200':
+          description: Assignment content retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  student:
+                    type: string
+                  assignmentId:
+                    type: integer
+                  courseId:
+                    type: integer
+                  name:
+                    type: string
+                  description:
+                    type: string
+                    nullable: true
+                    description: Raw HTML description
+                  descriptionText:
+                    type: string
+                    nullable: true
+                    description: Plain text description (HTML stripped)
+                  dueAt:
+                    type: string
+                    nullable: true
+                  points:
+                    type: number
+                  url:
+                    type: string
+                  attachments:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        name:
+                          type: string
+                        contentType:
+                          type: string
+                        size:
+                          type: integer
+                        content:
+                          type: string
+                          nullable: true
+                          description: Parsed text content of the file (if available)
+                        error:
+                          type: string
+                          nullable: true
+                  externalContent:
+                    type: string
+                    nullable: true
+                    description: Content from linked quizzes or pages
+        '400':
+          description: Missing required fields
+        '500':
+          description: Failed to fetch assignment content
