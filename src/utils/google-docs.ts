@@ -3,6 +3,10 @@
  * Works with publicly shared docs (anyone with link can view)
  */
 
+// pdf-parse for extracting text from PDFs
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const pdf = require("pdf-parse");
+
 interface GoogleDocContent {
   url: string;
   type: "doc" | "spreadsheet" | "pdf" | "unknown";
@@ -112,6 +116,34 @@ async function fetchGoogleSheet(fileId: string): Promise<string> {
 }
 
 /**
+ * Fetch and parse a PDF from Google Drive
+ */
+async function fetchGoogleDrivePdf(fileId: string): Promise<string> {
+  // Google Drive direct download URL
+  const downloadUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
+  
+  const response = await fetch(downloadUrl, {
+    headers: {
+      "User-Agent": "Mozilla/5.0 (compatible; AttunementBot/1.0)",
+    },
+  });
+  
+  if (!response.ok) {
+    throw new Error(`Failed to download PDF: ${response.status}`);
+  }
+  
+  // Get PDF as buffer
+  const arrayBuffer = await response.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+  
+  // Parse PDF text
+  const data = await pdf(buffer);
+  
+  // Return text content, limited to reasonable size
+  return data.text.slice(0, 20000);
+}
+
+/**
  * Fetch content from a single Google URL
  */
 export async function fetchGoogleContent(url: string): Promise<GoogleDocContent> {
@@ -139,13 +171,8 @@ export async function fetchGoogleContent(url: string): Promise<GoogleDocContent>
         return { url, type, content };
         
       case "pdf":
-        // PDFs in Google Drive can't be easily exported as text
-        // Would need pdf-parse library or Google Drive API
-        return {
-          url,
-          type,
-          error: "PDF files cannot be parsed directly. Upload to chat for analysis.",
-        };
+        content = await fetchGoogleDrivePdf(fileId);
+        return { url, type, content };
         
       default:
         return {
