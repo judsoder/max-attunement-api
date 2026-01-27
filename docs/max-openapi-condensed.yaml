@@ -1,0 +1,466 @@
+openapi: 3.1.0
+info:
+  title: Max's Attunement Assistant API
+  description: Canvas LMS, Calendar, syllabi, and grade tools for Max.
+  version: 1.1.0
+servers:
+  - url: https://max-attunement-api.onrender.com
+security:
+  - ApiKeyAuth: []
+
+paths:
+  /context:
+    post:
+      operationId: fetchMaxContext
+      summary: Get Max's unified context
+      description: Returns assignments, calendar events, grades, and performance.
+      x-openai-isConsequential: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text:
+                  type: string
+                who:
+                  type: string
+                student:
+                  type: string
+                  enum: ["max"]
+                  default: "max"
+              required:
+                - student
+      responses:
+        "200":
+          description: Context data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContextResponse"
+
+  /assignment/content:
+    post:
+      operationId: getAssignmentContent
+      summary: Get full assignment content with attachments
+      description: Fetches complete assignment details including files. Use for study help.
+      x-openai-isConsequential: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - courseId
+                - assignmentId
+              properties:
+                courseId:
+                  type: integer
+                assignmentId:
+                  type: integer
+                student:
+                  type: string
+                  enum: ["max"]
+                  default: "max"
+      responses:
+        "200":
+          description: Assignment content
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssignmentContent"
+
+  /syllabus:
+    get:
+      operationId: getAllSyllabi
+      summary: Get all course syllabi
+      description: Returns all syllabi with grade weights and policies.
+      x-openai-isConsequential: false
+      responses:
+        "200":
+          description: All syllabi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  syllabi:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Syllabus"
+
+  /syllabus/weights:
+    get:
+      operationId: getGradeWeights
+      summary: Get grade weights summary
+      description: Lightweight grade weight summary for all courses.
+      x-openai-isConsequential: false
+      responses:
+        "200":
+          description: Grade weights
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  weights:
+                    type: object
+                    additionalProperties:
+                      type: object
+
+  /syllabus/{course}:
+    get:
+      operationId: getSyllabus
+      summary: Get a specific syllabus
+      description: Get syllabus by course name (latin, math, history, etc).
+      x-openai-isConsequential: false
+      parameters:
+        - name: course
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Syllabus found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Syllabus"
+
+  /syllabus/impact:
+    post:
+      operationId: calculateGradeImpact
+      summary: Calculate grade impact
+      description: Calculate how a score affects overall grade.
+      x-openai-isConsequential: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - courseName
+                - category
+                - score
+                - maxScore
+              properties:
+                courseName:
+                  type: string
+                category:
+                  type: string
+                score:
+                  type: number
+                maxScore:
+                  type: number
+      responses:
+        "200":
+          description: Impact calculated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  percentage:
+                    type: number
+                  categoryWeight:
+                    type: number
+                  impactOnOverall:
+                    type: number
+                  relevantPolicies:
+                    type: array
+                    items:
+                      type: string
+
+  /reflections/recent:
+    post:
+      operationId: getRecentReflections
+      summary: Get recent reflections
+      description: Retrieves recent weekly reflections.
+      x-openai-isConsequential: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                student:
+                  type: string
+                  enum: ["max"]
+                  default: "max"
+                limit:
+                  type: integer
+                  default: 5
+      responses:
+        "200":
+          description: Reflections
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reflections:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Reflection"
+
+  /reflections/save:
+    post:
+      operationId: saveWeeklyReflection
+      summary: Save a weekly reflection
+      description: Saves a new reflection entry.
+      x-openai-isConsequential: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - student
+                - threads
+              properties:
+                student:
+                  type: string
+                  enum: ["max"]
+                threads:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "201":
+          description: Saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reflection"
+
+  /reflections/cleanup:
+    post:
+      operationId: cleanupReflections
+      summary: Dedupe reflections
+      description: Remove duplicate reflection entries.
+      x-openai-isConsequential: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                student:
+                  type: string
+                  enum: ["max"]
+      responses:
+        "200":
+          description: Done
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  removed:
+                    type: integer
+                  remaining:
+                    type: integer
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+
+  schemas:
+    Assignment:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        courseId:
+          type: integer
+        courseName:
+          type: string
+        dueAt:
+          type: string
+          nullable: true
+        due:
+          type: string
+        points:
+          type: number
+          nullable: true
+        status:
+          type: string
+        desc:
+          type: string
+          nullable: true
+        url:
+          type: string
+          nullable: true
+
+    AssignmentContent:
+      type: object
+      properties:
+        student:
+          type: string
+        assignmentId:
+          type: integer
+        courseId:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        descriptionText:
+          type: string
+          nullable: true
+        dueAt:
+          type: string
+          nullable: true
+        points:
+          type: number
+        url:
+          type: string
+        attachments:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+              name:
+                type: string
+              contentType:
+                type: string
+              size:
+                type: integer
+              content:
+                type: string
+                nullable: true
+              error:
+                type: string
+                nullable: true
+        externalContent:
+          type: string
+          nullable: true
+
+    CalendarEvent:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        start:
+          type: string
+          nullable: true
+        end:
+          type: string
+          nullable: true
+        location:
+          type: string
+          nullable: true
+        source:
+          type: string
+
+    CoursePerformance:
+      type: object
+      properties:
+        courseId:
+          type: integer
+        courseName:
+          type: string
+        currentScore:
+          type: number
+          nullable: true
+        currentGrade:
+          type: string
+          nullable: true
+        finalScore:
+          type: number
+          nullable: true
+        finalGrade:
+          type: string
+          nullable: true
+
+    Syllabus:
+      type: object
+      properties:
+        courseName:
+          type: string
+        teacher:
+          type: string
+        gradeWeights:
+          type: object
+        policies:
+          type: object
+        content:
+          type: string
+
+    Reflection:
+      type: object
+      properties:
+        id:
+          type: string
+        student:
+          type: string
+        date:
+          type: string
+        threads:
+          type: array
+          items:
+            type: string
+
+    ContextResponse:
+      type: object
+      properties:
+        student:
+          type: string
+        studentDisplayName:
+          type: string
+        canvasBaseUrl:
+          type: string
+        assignments:
+          type: array
+          items:
+            $ref: "#/components/schemas/Assignment"
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/CalendarEvent"
+        summary:
+          type: object
+          properties:
+            courses:
+              type: array
+              items:
+                type: string
+            dueSoon:
+              type: array
+              items:
+                $ref: "#/components/schemas/Assignment"
+            assignmentsByCourse:
+              type: object
+              additionalProperties:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Assignment"
+            assignmentCount:
+              type: integer
+            eventCount:
+              type: integer
+        coursePerformance:
+          type: array
+          items:
+            $ref: "#/components/schemas/CoursePerformance"
+        recentPerformance:
+          type: array
+          items:
+            type: object
