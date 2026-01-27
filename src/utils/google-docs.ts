@@ -5,11 +5,92 @@
 
 // pdf-parse for extracting text from PDFs
 import { PDFParse } from "pdf-parse";
+import Tesseract from "tesseract.js";
+import { execSync } from "child_process";
+import * as fs from "fs";
+import * as path from "path";
+import * as os from "os";
 
+/**
+ * Extract text from PDF using OCR (pdftoppm + Tesseract)
+ */
+async function ocrPdf(buffer: Buffer): Promise<string> {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "pdf-ocr-"));
+  const pdfPath = path.join(tmpDir, "input.pdf");
+  
+  try {
+    // Write PDF to temp file
+    fs.writeFileSync(pdfPath, buffer);
+    
+    // Convert PDF pages to PNG images using pdftoppm (poppler)
+    execSync(`pdftoppm -png -r 200 "${pdfPath}" "${tmpDir}/page"`, {
+      timeout: 60000,
+    });
+    
+    // Get list of generated images
+    const images = fs.readdirSync(tmpDir)
+      .filter(f => f.endsWith(".png"))
+      .sort();
+    
+    const textParts: string[] = [];
+    const maxPages = Math.min(images.length, 10);
+    
+    for (let i = 0; i < maxPages; i++) {
+      const imagePath = path.join(tmpDir, images[i]);
+      const imageBuffer = fs.readFileSync(imagePath);
+      
+      const result = await Tesseract.recognize(imageBuffer, "eng", {
+        logger: () => {}, // Suppress progress logs
+      });
+      
+      textParts.push(`-- Page ${i + 1} of ${images.length} --\n${result.data.text}`);
+    }
+    
+    return textParts.join("\n\n");
+  } finally {
+    // Clean up temp directory
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
+/**
+ * Check if extracted PDF text is meaningful (not just page markers or whitespace)
+ */
+function hasMeaningfulText(text: string): boolean {
+  if (!text || text.length < 50) return false;
+  
+  // Remove page markers like "-- 1 of 4 --" and whitespace
+  const cleaned = text
+    .replace(/--\s*\d+\s*of\s*\d+\s*--/gi, "")
+    .replace(/\s+/g, "")
+    .trim();
+  
+  // Need at least 30 chars of actual content
+  return cleaned.length > 30;
+}
+
+/**
+ * Parse PDF - try text extraction first, fall back to OCR if empty
+ */
 async function parsePdf(buffer: Buffer): Promise<string> {
-  const parser = new PDFParse({ data: buffer });
-  const result = await parser.getText();
-  return result.text;
+  // First try regular text extraction
+  try {
+    const parser = new PDFParse({ data: buffer });
+    const result = await parser.getText();
+    const text = result.text?.trim() || "";
+    
+    // If we got meaningful text (not just page markers), return it
+    if (hasMeaningfulText(text)) {
+      return text;
+    }
+  } catch (err) {
+    // Text extraction failed, will try OCR
+    console.log("PDF text extraction failed, trying OCR...");
+  }
+  
+  // Fall back to OCR
+  console.log("PDF has no text content, using OCR...");
+  return await ocrPdf(buffer);
 }
 
 interface GoogleDocContent {
