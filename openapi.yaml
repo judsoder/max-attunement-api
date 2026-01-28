@@ -236,6 +236,151 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
+  /course/pages:
+    post:
+      operationId: listCoursePages
+      summary: List all pages in a course
+      description: Returns all Canvas pages for a course. Use this to find agendas, study guides, and other resources.
+      x-openai-isConsequential: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [courseId, student]
+              properties:
+                courseId:
+                  type: integer
+                  description: Canvas course ID
+                student:
+                  type: string
+                  description: Student name (max or lev)
+      responses:
+        "200":
+          description: List of pages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoursePagesResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /course/page:
+    post:
+      operationId: getPageContent
+      summary: Get a specific page's content
+      description: Fetches the full HTML content of a Canvas page.
+      x-openai-isConsequential: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [courseId, pageUrl, student]
+              properties:
+                courseId:
+                  type: integer
+                  description: Canvas course ID
+                pageUrl:
+                  type: string
+                  description: Page URL slug (from /course/pages response)
+                student:
+                  type: string
+                  description: Student name (max or lev)
+      responses:
+        "200":
+          description: Page content
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PageContentResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /course/materials:
+    post:
+      operationId: getCourseMaterials
+      summary: Get all materials for a course
+      description: Returns pages, module items, and external links. Optionally fetches linked Google Docs content.
+      x-openai-isConsequential: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [courseId, student]
+              properties:
+                courseId:
+                  type: integer
+                  description: Canvas course ID
+                student:
+                  type: string
+                  description: Student name (max or lev)
+                search:
+                  type: string
+                  description: Optional search term to filter materials
+                includeContent:
+                  type: boolean
+                  description: Include full page content (default false)
+                fetchGoogleDocs:
+                  type: boolean
+                  description: Fetch content from linked Google Docs (default true)
+      responses:
+        "200":
+          description: Course materials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CourseMaterialsResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /course/study-guide:
+    post:
+      operationId: findStudyGuide
+      summary: Find study guide materials
+      description: Searches for study guide, review, or test prep materials in a course.
+      x-openai-isConsequential: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [courseId, student]
+              properties:
+                courseId:
+                  type: integer
+                  description: Canvas course ID
+                student:
+                  type: string
+                  description: Student name (max or lev)
+                searchTerms:
+                  type: array
+                  items:
+                    type: string
+                  description: Custom search terms (default ["study guide", "review", "test prep"])
+      responses:
+        "200":
+          description: Study guide materials found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudyGuideResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
 components:
   securitySchemes:
     ApiKeyAuth:
@@ -576,4 +721,89 @@ components:
           items:
             $ref: "#/components/schemas/KeyPolicy"
         interpretation: { type: string }
+
+    CoursePage:
+      type: object
+      properties:
+        id: { type: integer }
+        title: { type: string }
+        urlSlug: { type: string }
+        url: { type: string }
+        updatedAt: { type: string }
+        frontPage: { type: boolean }
+
+    CoursePagesResponse:
+      type: object
+      properties:
+        student: { type: string }
+        courseId: { type: integer }
+        pages:
+          type: array
+          items:
+            $ref: "#/components/schemas/CoursePage"
+
+    PageContentResponse:
+      type: object
+      properties:
+        student: { type: string }
+        courseId: { type: integer }
+        page:
+          type: object
+          properties:
+            id: { type: integer }
+            title: { type: string }
+            url: { type: string }
+            content: { type: string }
+            updatedAt: { type: string }
+
+    GoogleDocContent:
+      type: object
+      properties:
+        url: { type: string }
+        type: { type: string, enum: [doc, spreadsheet, pdf, unknown] }
+        content: { type: string, nullable: true }
+        error: { type: string, nullable: true }
+
+    MaterialItem:
+      type: object
+      properties:
+        id: { type: string }
+        type: { type: string, enum: [page, module_item, external_link] }
+        title: { type: string }
+        url: { type: string, nullable: true }
+        content: { type: string, nullable: true }
+        contentPreview: { type: string, nullable: true }
+        googleDocs:
+          type: array
+          nullable: true
+          items:
+            $ref: "#/components/schemas/GoogleDocContent"
+
+    CourseMaterialsResponse:
+      type: object
+      properties:
+        student: { type: string }
+        courseId: { type: integer }
+        pages:
+          type: array
+          items:
+            $ref: "#/components/schemas/MaterialItem"
+        moduleItems:
+          type: array
+          items:
+            $ref: "#/components/schemas/MaterialItem"
+        externalLinks:
+          type: array
+          items:
+            $ref: "#/components/schemas/MaterialItem"
+
+    StudyGuideResponse:
+      type: object
+      properties:
+        student: { type: string }
+        courseId: { type: integer }
+        studyGuides:
+          type: array
+          items:
+            $ref: "#/components/schemas/MaterialItem"
 
