@@ -52,10 +52,16 @@ export async function getCoursePages(
   courseId: number,
   studentConfig: StudentConfig
 ): Promise<CanvasPage[]> {
-  return canvasFetch<CanvasPage[]>(
-    `/api/v1/courses/${courseId}/pages?per_page=100`,
-    studentConfig
-  );
+  try {
+    return await canvasFetch<CanvasPage[]>(
+      `/api/v1/courses/${courseId}/pages?per_page=100`,
+      studentConfig
+    );
+  } catch (err) {
+    // Pages might not be accessible - return empty array instead of failing
+    console.log(`Could not fetch pages for course ${courseId}: ${err}`);
+    return [];
+  }
 }
 
 /**
@@ -79,10 +85,16 @@ export async function getCourseModules(
   courseId: number,
   studentConfig: StudentConfig
 ): Promise<CanvasModule[]> {
-  return canvasFetch<CanvasModule[]>(
-    `/api/v1/courses/${courseId}/modules?include[]=items&per_page=100`,
-    studentConfig
-  );
+  try {
+    return await canvasFetch<CanvasModule[]>(
+      `/api/v1/courses/${courseId}/modules?include[]=items&per_page=100`,
+      studentConfig
+    );
+  } catch (err) {
+    // Modules might not be accessible - return empty array instead of failing
+    console.log(`Could not fetch modules for course ${courseId}: ${err}`);
+    return [];
+  }
 }
 
 /**
