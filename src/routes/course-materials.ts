@@ -7,6 +7,7 @@ import {
   getPageContent,
   getCoursePages,
 } from "../services/course-materials.js";
+import { fetchGoogleContent, fetchAllGoogleContent } from "../utils/google-docs.js";
 
 export const courseMaterialsRoutes: FastifyPluginAsync = async (app) => {
   /**
@@ -180,5 +181,55 @@ export const courseMaterialsRoutes: FastifyPluginAsync = async (app) => {
         frontPage: p.front_page,
       })),
     };
+  });
+
+  /**
+   * Fetch content from a Google Doc/Sheet/PDF URL
+   */
+  app.post<{
+    Body: {
+      url: string;
+    };
+  }>("/google-doc", async (request, reply) => {
+    const { url } = request.body;
+
+    if (!url) {
+      return reply.code(400).send({
+        error: "BadRequest",
+        message: "url is required",
+      });
+    }
+
+    const result = await fetchGoogleContent(url);
+    return result;
+  });
+
+  /**
+   * Fetch content from multiple Google Doc URLs
+   */
+  app.post<{
+    Body: {
+      urls?: string[];
+      html?: string;
+    };
+  }>("/google-docs", async (request, reply) => {
+    const { urls, html } = request.body;
+
+    if (!urls && !html) {
+      return reply.code(400).send({
+        error: "BadRequest",
+        message: "Either urls array or html with embedded links is required",
+      });
+    }
+
+    if (html) {
+      const results = await fetchAllGoogleContent(html);
+      return { documents: results };
+    }
+
+    if (urls) {
+      const results = await Promise.all(urls.map(fetchGoogleContent));
+      return { documents: results };
+    }
   });
 };
