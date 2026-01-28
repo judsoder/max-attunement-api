@@ -82,3 +82,42 @@ export interface RecentPerformance {
   courseName: string;
   recentGraded: GradedAssignment[];
 }
+
+// Canvas Page
+export interface CanvasPage {
+  page_id: number;
+  url: string; // URL slug for the page
+  title: string;
+  created_at: string;
+  updated_at: string;
+  published: boolean;
+  front_page: boolean;
+  html_url: string;
+  body?: string; // HTML content (only when fetching single page)
+}
+
+// Canvas Module
+export interface CanvasModule {
+  id: number;
+  name: string;
+  position: number;
+  unlock_at: string | null;
+  state: string;
+  items_count: number;
+  items_url: string;
+  items?: CanvasModuleItem[];
+}
+
+// Canvas Module Item
+export interface CanvasModuleItem {
+  id: number;
+  module_id: number;
+  position: number;
+  title: string;
+  type: "File" | "Page" | "Discussion" | "Assignment" | "Quiz" | "SubHeader" | "ExternalUrl" | "ExternalTool";
+  content_id?: number;
+  html_url?: string;
+  url?: string; // API URL for the item
+  external_url?: string; // For ExternalUrl type
+  page_url?: string; // For Page type
+}
